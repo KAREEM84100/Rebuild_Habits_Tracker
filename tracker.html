@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rebuild 2.0 - Kareem's Tracker</title>
+  <style>
+    :root {
+      --bg: #121212;
+      --text: #e0e0e0;
+      --container-bg: #1e1e1e;
+      --box-bg: #263238;
+      --th-bg: #263238;
+      --th-color: #90caf9;
+      --row-even: #1c1c1c;
+      --btn-bg: #1565c0;
+      --btn-hover: #0d47a1;
+      --input-bg: #333;
+      --note-bg: #1e1e1e;
+    }
+
+    body.light {
+      --bg: #ffffff;
+      --text: #222;
+      --container-bg: #f1f1f1;
+      --box-bg: #e0e0e0;
+      --th-bg: #bbdefb;
+      --th-color: #0d47a1;
+      --row-even: #f9f9f9;
+      --btn-bg: #0d47a1;
+      --btn-hover: #1565c0;
+      --input-bg: #ffffff;
+      --note-bg: #ffffff;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 20px;
+      transition: all 0.3s ease;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: auto;
+      background: var(--container-bg);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+      border-radius: 12px;
+      padding: 30px;
+    }
+
+    h1 {
+      text-align: center;
+      color: var(--th-color);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    th, td {
+      border: 1px solid #444;
+      text-align: center;
+      padding: 10px;
+    }
+
+    th {
+      background-color: var(--th-bg);
+      color: var(--th-color);
+    }
+
+    tr:nth-child(even) {
+      background-color: var(--row-even);
+    }
+
+    .complete {
+      background-color: #388e3c;
+      color: white;
+    }
+
+    .incomplete {
+      background-color: #d32f2f;
+      color: white;
+    }
+
+    .checkbox {
+      width: 20px;
+      height: 20px;
+    }
+
+    button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      background-color: var(--btn-bg);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: var(--btn-hover);
+    }
+
+    .quote-box, .streak-box, .chart-box {
+      margin-top: 30px;
+      padding: 20px;
+      background-color: var(--box-bg);
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    input.habit-name {
+      width: 100%;
+      background: var(--input-bg);
+      color: inherit;
+      border: none;
+      text-align: center;
+    }
+
+    .note-input {
+      width: 100%;
+      padding: 5px;
+      background: var(--note-bg);
+      color: inherit;
+      border: 1px solid #444;
+      margin-top: 5px;
+      border-radius: 4px;
+    }
+
+    #themeToggle {
+      float: right;
+      margin-bottom: 10px;
+    }
+
+    #saveButton {
+      display: block;
+      margin: 30px auto 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <button id="themeToggle">🌗 Toggle Theme</button>
+    <h1>🛠️ Rebuild 2.0 - Kareem's 30 Day Tracker</h1>
+
+    <div class="quote-box">
+      <h3>🌟 Daily Motivation</h3>
+      <p id="quote">Loading...</p>
+    </div>
+
+    <div class="streak-box">
+      <h3>🔥 Current Streak</h3>
+      <p id="streakCount">0 days</p>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Day</th>
+          <th><input class="habit-name" data-index="0"></th>
+          <th><input class="habit-name" data-index="1"></th>
+          <th><input class="habit-name" data-index="2"></th>
+          <th><input class="habit-name" data-index="3"></th>
+          <th><input class="habit-name" data-index="4"></th>
+          <th><input class="habit-name" data-index="5"></th>
+          <th><input class="habit-name" data-index="6"></th>
+          <th><input class="habit-name" data-index="7"></th>
+          <th><input class="habit-name" data-index="8"></th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody id="habitTable"></tbody>
+    </table>
+
+    <button id="saveButton" onclick="saveProgress()">💾 Save Progress</button>
+
+    <div class="chart-box">
+      <h3>📈 Weekly Progress Overview</h3>
+      <canvas id="progressChart" width="400" height="200"></canvas>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    const habits = 9;
+    const table = document.getElementById('habitTable');
+
+    function saveProgress() {
+      const checkboxes = document.querySelectorAll('.checkbox');
+      const notes = document.querySelectorAll('.note-input');
+      const nameInputs = document.querySelectorAll('.habit-name');
+      let index = 0;
+      const progress = {};
+
+      const names = Array.from(nameInputs).map(input => input.value);
+      localStorage.setItem('habitNames', JSON.stringify(names));
+
+      for (let i = 1; i <= 30; i++) {
+        for (let j = 0; j < habits; j++) {
+          progress[`day${i}-h${j}`] = checkboxes[index].checked;
+          index++;
+        }
+        progress[`day${i}-note`] = notes[i - 1].value;
+      }
+      localStorage.setItem('rebuildProgress', JSON.stringify(progress));
+      alert('Progress saved!');
+    }
+
+    function loadProgress() {
+      const saved = JSON.parse(localStorage.getItem('rebuildProgress') || '{}');
+      const savedNames = JSON.parse(localStorage.getItem('habitNames') || '[]');
+
+      const nameInputs = document.querySelectorAll('.habit-name');
+      nameInputs.forEach((input, i) => {
+        input.value = savedNames[i] || '';
+      });
+
+      for (let i = 1; i <= 30; i++) {
+        const row = document.createElement('tr');
+        const dayCell = document.createElement('td');
+        dayCell.textContent = 'Day ' + i;
+        row.appendChild(dayCell);
+
+        for (let j = 0; j < habits; j++) {
+          const cell = document.createElement('td');
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.className = 'checkbox';
+          const key = `day${i}-h${j}`;
+          checkbox.checked = saved[key] || false;
+          updateCellStyle(checkbox, cell);
+          checkbox.addEventListener('change', function () {
+            updateCellStyle(checkbox, cell);
+          });
+          cell.appendChild(checkbox);
+          row.appendChild(cell);
+        }
+
+        const noteCell = document.createElement('td');
+        const noteInput = document.createElement('input');
+        noteInput.className = 'note-input';
+        noteInput.placeholder = 'Write note...';
+        noteInput.value = saved[`day${i}-note`] || '';
+        noteCell.appendChild(noteInput);
+        row.appendChild(noteCell);
+
+        table.appendChild(row);
+      }
+      document.getElementById('streakCount').innerText = `${calculateStreak()} days`;
+      renderChart();
+    }
+
+    function updateCellStyle(checkbox, cell) {
+      if (checkbox.checked) {
+        cell.classList.add('complete');
+        cell.classList.remove('incomplete');
+        cell.title = '✔ Completed';
+      } else {
+        cell.classList.remove('complete');
+        cell.classList.add('incomplete');
+        cell.title = '❌ Incomplete';
+      }
+    }
+
+    function calculateStreak() {
+      const saved = JSON.parse(localStorage.getItem('rebuildProgress') || '{}');
+      let streak = 0;
+      for (let i = 1; i <= 30; i++) {
+        let dayComplete = true;
+        for (let j = 0; j < habits; j++) {
+          if (!saved[`day${i}-h${j}`]) {
+            dayComplete = false;
+            break;
+          }
+        }
+        if (dayComplete) streak++;
+      }
+      return streak;
+    }
+
+    function renderChart() {
+      const saved = JSON.parse(localStorage.getItem('rebuildProgress') || '{}');
+      const ctx = document.getElementById('progressChart').getContext('2d');
+      const data = new Array(habits).fill(0);
+      for (let i = 1; i <= 30; i++) {
+        for (let j = 0; j < habits; j++) {
+          if (saved[`day${i}-h${j}`]) data[j]++;
+        }
+      }
+      const labels = Array.from(document.querySelectorAll('.habit-name')).map(input => input.value || `Habit ${input.dataset.index}`);
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Completion Count',
+            data: data,
+            backgroundColor: '#42a5f5'
+          }]
+        },
+        options: {
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    function loadQuote() {
+      const quotes = [
+        "The journey of a thousand miles begins with one step.",
+        "Small steps every day lead to big changes.",
+        "Your past does not define your future.",
+        "Discipline is the bridge between goals and accomplishment.",
+        "You are capable of amazing things."
+      ];
+      document.getElementById('quote').innerText = quotes[Math.floor(Math.random() * quotes.length)];
+    }
+
+    function initThemeToggle() {
+      const themeBtn = document.getElementById('themeToggle');
+      const currentTheme = localStorage.getItem('theme') || 'dark';
+      document.body.classList.toggle('light', currentTheme === 'light');
+
+      themeBtn.addEventListener('click', () => {
+        document.body.classList.toggle('light');
+        localStorage.setItem('theme', document.body.classList.contains('light') ? 'light' : 'dark');
+      });
+    }
+
+    window.addEventListener('beforeunload', saveProgress);
+
+    loadProgress();
+    loadQuote();
+    initThemeToggle();
+  </script>
+</body>
+</html>
